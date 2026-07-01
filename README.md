@@ -1,4 +1,3 @@
-
 # PepCL Reproduction Repository
 
 This repository contains the manuscript-specific code, notebooks, analysis scripts, figure-generation notebooks, and reproduction materials associated with the PepCL peptide–MHC class I continual learning study.
@@ -13,7 +12,7 @@ Users who want to run the packaged base model or PepCL update workflow directly 
 ## Repository structure
 
 ```text
-PepCL_Manuscript/
+CLSBN26/
 ├── Analysis/
 ├── src/
 ├── Figures/
@@ -47,17 +46,23 @@ Data/
 Model_Checkpoints/
 ```
 
-These folders contain the collected and processed datasets, intermediate data files, trained model checkpoints, and related assets needed to reproduce the full manuscript analyses.
-
-The expected top-level layout for full reproduction is therefore:
+These folders can be downloaded from the following Google Drive folder:
 
 ```text
-PepCL_Manuscript/
+https://drive.google.com/drive/folders/1Onb7cGkSlsv4r32lKCHy-moYwGKu9Lim?usp=sharing
+```
+
+The `Data/` directory is required for figure generation and manuscript analyses. The `Model_Checkpoints/` directory is required for analyses that load trained or updated model checkpoints.
+
+After downloading, place both folders at the top level of the repository. The expected top-level layout for full reproduction is therefore:
+
+```text
+CLSBN26/
 ├── Analysis/
 ├── src/
 ├── Figures/
-├── Data/ # must be downloaded
-├── Model_Checkpoints/ # must be downloaded
+├── Data/                 # must be downloaded
+├── Model_Checkpoints/    # must be downloaded
 ├── LICENSE
 └── README.md
 ```
