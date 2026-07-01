@@ -1,0 +1,6 @@
+,mhcprime,escape_seq_neoant_ft_cls,escape_seq_neoant_pepcl_cls,escape_seq_neoant_ft_w_more_negs_cls,escape_seq_neoant_pepcl_w_more_negs_cls
+mhcprime,1.0,0.0,2.372357387780727e-16,0.0,1.466855035460687e-67
+escape_seq_neoant_ft_cls,0.0,1.0,0.0,3.3987864610524687e-44,0.0
+escape_seq_neoant_pepcl_cls,2.372357387780727e-16,0.0,1.0,0.0,3.113287329639545e-30
+escape_seq_neoant_ft_w_more_negs_cls,0.0,3.3987864610524687e-44,0.0,1.0,0.0
+escape_seq_neoant_pepcl_w_more_negs_cls,1.466855035460687e-67,0.0,3.113287329639545e-30,0.0,1.0
