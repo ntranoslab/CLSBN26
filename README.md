@@ -46,11 +46,7 @@ Data/
 Model_Checkpoints/
 ```
 
-These folders can be downloaded from the following Google Drive folder:
-
-```text
-https://drive.google.com/drive/folders/1Onb7cGkSlsv4r32lKCHy-moYwGKu9Lim?usp=sharing
-```
+These folders can be downloaded from the [CLSBN26 data and model checkpoint folder](https://drive.google.com/drive/folders/1Onb7cGkSlsv4r32lKCHy-moYwGKu9Lim?usp=sharing).
 
 The `Data/` directory is required for figure generation and manuscript analyses. The `Model_Checkpoints/` directory is required for analyses that load trained or updated model checkpoints.
 
