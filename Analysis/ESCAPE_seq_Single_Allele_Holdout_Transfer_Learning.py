@@ -380,7 +380,7 @@ for allele in tqdm(alleles_to_run):
     os.remove(data_to_run_path)
 
     print("Saving", model_name_pepcl)
-    torch.save(model_ft.state_dict(), f"{allele_transfer_learning_dir_pepcl}/{model_name_pepcl}.pt")
+    torch.save(model_pepcl.state_dict(), f"{allele_transfer_learning_dir_pepcl}/{model_name_pepcl}.pt")
 
     print("Saving", model_name_ft)
     torch.save(model_ft.state_dict(), f"{allele_transfer_learning_dir_ft}/{model_name_ft}.pt")
