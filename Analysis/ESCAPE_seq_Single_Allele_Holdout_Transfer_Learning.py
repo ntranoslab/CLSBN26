@@ -61,7 +61,10 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # import ms train data
 print("Loading training data...")
-train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+# train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+
+train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data_remaining_minimal.csv"
+
 ms_train_data = pd.read_csv(train_data_path, index_col=0)
 print_data_stats(ms_train_data)
 print(end="\n")
@@ -120,6 +123,8 @@ ms_escape_seq_train_data_noX_noA68_matched_allele=ms_escape_seq_train_data_noX_n
 ms_escape_seq_train_data_noX_noA68_matched_allele.reset_index(inplace=True, drop=True)
 print_data_stats(ms_escape_seq_train_data_noX_noA68_matched_allele)
 ms_escape_seq_train_data_noX_noA68_matched_allele=full_process_data(ms_escape_seq_train_data_noX_noA68_matched_allele, mhc_seq_dict, remove_flank=True, add_pseudo_label=False)
+
+ms_escape_seq_train_data_noX_noA68_matched_allele["example_id"]=ms_escape_seq_train_data_noX_noA68_matched_allele.index.tolist()
 
 # setup tokenizer
 tokenizer = AminoAcidTokenizer()
@@ -184,7 +189,10 @@ print("Setting up directories...")
 MODEL_CHECKPOINTS_DIR = PROJECT_ROOT / "Model_Checkpoints"
 
 dataset_name_dir="ESCAPE_seq"
-allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models" / dataset_name_dir
+# allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models" / dataset_name_dir
+
+allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models_Optimized" / dataset_name_dir
+
 allele_transfer_learning_dir_ft = allele_transfer_learning_dir / "FT"
 allele_transfer_learning_dir_pepcl = allele_transfer_learning_dir / "PepCL"
 
@@ -194,7 +202,10 @@ allele_transfer_learning_dir_pepcl.mkdir(parents=True, exist_ok=True)
 print("Output dirs set:", allele_transfer_learning_dir_ft)
 print("Output dirs set:", allele_transfer_learning_dir_pepcl)
 
-transfer_learning_outputs_dir = DATA_DIR / "ESCAPE_seq_Single_Allele_Heldout_Tranfer_Learning_Outputs" / "output_dfs"
+# transfer_learning_outputs_dir = DATA_DIR / "ESCAPE_seq_Single_Allele_Heldout_Tranfer_Learning_Outputs" / "output_dfs"
+
+transfer_learning_outputs_dir = DATA_DIR / "ESCAPE_seq_Single_Allele_Heldout_Tranfer_Learning_Outputs_Optimized" / "output_dfs"
+
 transfer_learning_outputs_dir.mkdir(parents=True, exist_ok=True)
 
 print(end="\n")
@@ -209,10 +220,11 @@ print("Initializing model...")
 # print(end="\n")
 # clear_all_gpu_memory()
 
-base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+# base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base_for_Ablations" / "Checkpoints"
 ckpt_path = base_model_dir / "model_final.pt"
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(f"cuda:{GPU_ID}" if torch.cuda.is_available() else "cpu")
 
 clear_all_gpu_memory()
 
@@ -238,7 +250,8 @@ print(end="\n")
 
 base_pepcl_params=dict(
             device="cuda",
-            steps = 200,
+            # steps = 200,
+            steps = 300, # NOTE: updated steps
             output_dir = None,
             save_every_n_steps = 2000,
             seed = 42,

@@ -1,0 +1,11 @@
+,model_name,recovered
+0,escape_con_ft_steps_200_lr_2eN4_top,0.6084656084656085
+1,escape_con_pepcl_r_dr_steps_300_lr_2eN4_top,0.6190476190476191
+2,mhcprime_top,0.47619047619047616
+3,EL_Rank_top,0.6190476190476191
+4,BA_Rank_top,0.42857142857142855
+0,escape_con_ft_steps_200_lr_2eN4_rem,0.23856209150326796
+1,escape_con_pepcl_r_dr_steps_300_lr_2eN4_rem,0.3033769063180828
+2,mhcprime_rem,0.12254901960784313
+3,EL_Rank_rem,0.2696078431372549
+4,BA_Rank_rem,0.2647058823529412

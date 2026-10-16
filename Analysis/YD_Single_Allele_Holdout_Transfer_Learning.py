@@ -62,7 +62,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # import ms train data
 print("Loading training data...")
-train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+# train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+
+# remaining after validation removal
+train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data_remaining_minimal.csv"
+
 ms_train_data = pd.read_csv(train_data_path, index_col=0)
 print_data_stats(ms_train_data)
 print(end="\n")
@@ -101,12 +105,18 @@ print_data_stats(holec_et_al_pathogen_data)
 ms_holec_train_data=ms_train_data.copy()
 ms_holec_train_data=pd.concat([ms_holec_train_data, holec_et_al_pathogen_data], axis=0) 
 ms_holec_train_data.reset_index(inplace=True, drop=True)
+
+ms_holec_train_data["example_id"]=ms_holec_train_data.index
+
 print_data_stats(ms_holec_train_data)
 
 # match allele and len
 ms_holec_train_data["seq_len"]=ms_holec_train_data.seq.str.replace("$", "").apply(len)
 ms_holec_train_data_matched_allele=ms_holec_train_data[ms_holec_train_data.allele.isin(holec_et_al_pathogen_data.allele.unique().tolist())].query("seq_len == 9")
 ms_holec_train_data_matched_allele.reset_index(inplace=True, drop=True)
+
+ms_holec_train_data_matched_allele["example_id"]=ms_holec_train_data_matched_allele.index
+
 print_data_stats(ms_holec_train_data_matched_allele)
 
 # setup tokenizer
@@ -172,7 +182,10 @@ print("Setting up directories...")
 MODEL_CHECKPOINTS_DIR = PROJECT_ROOT / "Model_Checkpoints"
 
 dataset_name_dir="YD"
-allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models" / dataset_name_dir
+# allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models" / dataset_name_dir
+
+allele_transfer_learning_dir = MODEL_CHECKPOINTS_DIR / "Allele_Transfer_Learning_Models_Optimized" / dataset_name_dir
+
 allele_transfer_learning_dir_ft = allele_transfer_learning_dir / "FT"
 allele_transfer_learning_dir_pepcl = allele_transfer_learning_dir / "PepCL"
 
@@ -182,14 +195,20 @@ allele_transfer_learning_dir_pepcl.mkdir(parents=True, exist_ok=True)
 print("Output dirs set:", allele_transfer_learning_dir_ft)
 print("Output dirs set:", allele_transfer_learning_dir_pepcl)
 
-transfer_learning_outputs_dir = DATA_DIR / "Holec_Single_Allele_Heldout_Tranfer_Learning_Outputs" / "output_dfs"
+# transfer_learning_outputs_dir = DATA_DIR / "Holec_Single_Allele_Heldout_Tranfer_Learning_Outputs" / "output_dfs"
+
+transfer_learning_outputs_dir = DATA_DIR / "Holec_Single_Allele_Heldout_Tranfer_Learning_Outputs_Optimized" / "output_dfs"
+
 transfer_learning_outputs_dir.mkdir(parents=True, exist_ok=True)
 
 print(end="\n")
 
 # init model
 print("Initializing model...")
-base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+# base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+
+base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base_for_Ablations" / "Checkpoints"
+
 mhcprime=init_model(base_model_params, print_check=False, print_params=True)
 mhcprime.load_state_dict(torch.load(f"{base_model_dir}/model_final.pt"))
 mhcprime.eval()
@@ -198,15 +217,16 @@ print(end="\n")
 clear_all_gpu_memory()
 
 alleles_to_run_per_gpu={
-    0: ['A0201', 'C0401', 'A0101', 'B3901'], 
-    1: ['A2402', 'B5502', 'A0301', 'B5801'], 
-    2: ['B3502', 'C0102', 'A3001', 'C0303'], 
+    # 0: ['A0201', 'C0401', 'A0101', 'B3901'], 
+    # 1: ['A2402', 'B5502', 'A0301', 'B5801'], 
+    0: ['B3502', 'C0102', 'A3001', 'C0303'], 
     3: ['B3503', 'C1202', 'A3002', 'A1101']
 }
 
 base_pepcl_params=dict(
             device="cuda",
-            steps = 200,
+            # steps = 200,
+            steps = 300, # NOTE: updated steps for all (300 is optimal for FT here as well)
             output_dir = None,
             save_every_n_steps = 2000,
             seed = 42,
@@ -283,7 +303,6 @@ for allele in tqdm(alleles_to_run):
             model=model_ft,
             train_df=train_data_holec_aho,
             tokenizer=tokenizer,
-            device="cuda",
             use_replay=False,
             **base_pepcl_params,
     )

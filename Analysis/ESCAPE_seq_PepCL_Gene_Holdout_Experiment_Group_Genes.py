@@ -2,7 +2,6 @@
 Run cmd: python ESCAPE_seq_PepCL_Gene_Holdout_Experiment_Group_Genes.py -g gpu_id
 """
 
-
 import sys
 from pathlib import Path
 import shutil
@@ -62,7 +61,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # import ms train data
 print("Loading training data...")
-train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+# train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data.csv"
+
+# NOTE: USE DATA WITH VALIDATION SET HELD OUT
+train_data_path = DATA_DIR / "Training_Datasets" / "Processed" / "MS_Train_Test_Sets" / "ms_train_data_remaining.csv"
+
 ms_train_data = pd.read_csv(train_data_path, index_col=0)
 print_data_stats(ms_train_data)
 print(end="\n")
@@ -196,7 +199,22 @@ pepcl_base_params_con=dict(
 )
 
 print("Making output dir")
-central_ft_dir=f"{DATA_DIR}/ESCAPE_seq_gene_holdout_experiment"
+# central_and_model_dir_name="ESCAPE_seq_gene_holdout_experiment"
+
+# use ablated model with validations held out
+# central_and_model_dir_name="ESCAPE_seq_gene_holdout_experiment_for_ablations_model" # NOTE: CHANGED THE BASE MODEL BELOW AND MUST CHANGE THE DATA LOADED IN ABOVE FOR TRAINING MS
+
+# use validation-selected ft and pepcl parameters here. For pepcl, we use the default parameters (300, 2e-4) for ft, we use the best validation selected configuration which remains 200 steps and 2e-4, so we may not need to run FT now.
+central_and_model_dir_name="ESCAPE_seq_gene_holdout_experiment_for_ablations_model_optimal" # NOTE: CHANGED THE BASE MODEL BELOW AND MUST CHANGE THE DATA LOADED IN ABOVE FOR TRAINING MS
+
+ft_base_params_con_optimal=pepcl_base_params_con.copy()
+pepcl_base_params_con_optimal=pepcl_base_params_con.copy()
+
+# update steps
+pepcl_base_params_con_optimal["steps"]=300
+
+
+central_ft_dir=f"{DATA_DIR}/{central_and_model_dir_name}"
 os.makedirs(central_ft_dir, exist_ok=True)
 
 output_df_dir="inference_dfs"
@@ -204,10 +222,10 @@ os.makedirs(f"{central_ft_dir}/{output_df_dir}", exist_ok=True)
 
 MODEL_CHECKPOINTS_DIR = PROJECT_ROOT / "Model_Checkpoints"
 
-pepcl_models_dir="ESCAPE_seq_gene_holdout_experiment/PepCL"
+pepcl_models_dir=f"{central_and_model_dir_name}/PepCL"
 os.makedirs(f"{MODEL_CHECKPOINTS_DIR}/{pepcl_models_dir}", exist_ok=True)
 
-ft_models_dir="ESCAPE_seq_gene_holdout_experiment/FT"
+ft_models_dir=f"{central_and_model_dir_name}/FT"
 os.makedirs(f"{MODEL_CHECKPOINTS_DIR}/{ft_models_dir}", exist_ok=True)
 
 # init model
@@ -220,10 +238,11 @@ print("Initializing model...")
 # print(end="\n")
 # clear_all_gpu_memory()
 
-base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+# base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base" / "Checkpoints"
+base_model_dir = MODEL_CHECKPOINTS_DIR / "MHCPrime_Base_for_Ablations" / "Checkpoints"
 ckpt_path = base_model_dir / "model_final.pt"
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
 clear_all_gpu_memory()
 
@@ -317,7 +336,7 @@ for gene, gene_group in tqdm(gene_groups.items()):
             model=model_ft,
             train_df=new_train_data_ms_full_pt_and_ft_no_gene_matched_allele_noX_noA68,
             use_replay = False,
-            **pepcl_base_params_con,
+            **ft_base_params_con_optimal,
     )
     training_stats=pepcl.train()
 
@@ -327,17 +346,30 @@ for gene, gene_group in tqdm(gene_groups.items()):
             model=model_pepcl,
             train_df=new_train_data_ms_full_pt_and_ft_no_gene_matched_allele_noX_noA68,
             use_replay = True,
-            **pepcl_base_params_con,
+            **pepcl_base_params_con_optimal,
     )
     training_stats=pepcl.train()
 
     # score models
     base_and_ft_models={"model_base": model_base, "model_ft": model_ft, "model_pepcl": model_pepcl}
 
-    for model_name, model in base_and_ft_models.items():
+    data_to_run_path=f"{DATA_DIR}/escape_seq_gene_data_{str(gpu_id)}_cache.pt"
+    build_token_cache(mut_wt_df_gene, data_to_run_path, tokenizer, use_domain_id=False)
+
+    for model_name, model in base_and_ft_models.items(): # NOTE: CHANGED DICT HERE
+        model = model.to(device)
         model.eval()
         with torch.no_grad():
-            mut_wt_df_gene=run_mhcprime(model, mut_wt_df_gene, tokenizer, batch_size=3072, num_workers=0, score_col=model_name, device="cuda", return_embeddings=False)
+            output_scores=run_mhcprime_fast(model, data_to_run_path, batch_size=3072, num_workers=4, compile_model=False, use_domain_id=False)
+
+        mut_wt_df_gene[model_name]=output_scores
+
+    os.remove(data_to_run_path)
+
+    # for model_name, model in base_and_ft_models.items():
+    #     model.eval()
+    #     with torch.no_grad():
+    #         mut_wt_df_gene=run_mhcprime(model, mut_wt_df_gene, tokenizer, batch_size=3072, num_workers=0, score_col=model_name, device="cuda", return_embeddings=False)
 
 
     mut_wt_df_gene["name_allele"]=[f"{n}_{a}" for n, a in zip(mut_wt_df_gene.name2, mut_wt_df_gene.allele)]

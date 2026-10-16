@@ -2,7 +2,11 @@ from functools import partial
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-
+import copy, math, re, time, types
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from torch import nn
 from .model_utils import PeptideMHCDataset, collate_fn
 
 def run_mhcprime(model, test_df, tokenizer, batch_size=1024, num_workers=16, score_col="score", device="cuda", return_embeddings=False, include_hardness_score=False, include_domain_id=False, include_prior_score=False):
@@ -193,3 +197,140 @@ def run_mhcprime_fast(model, cache_pt: str, batch_size: int = 3072, num_workers:
             all_logits.append(logits.float().cpu()) # keep fp32 on host
 
     return torch.cat(all_logits)
+
+def run_mhcprime_fast_multiple_models(
+    models,
+    test_df,
+    cache_pt: str,
+    batch_size: int = 3072,
+    num_workers: int = 8,
+    use_bf16: bool = True,
+    compile_model: bool = False,
+    use_domain_id: bool = False,
+    device: str = "cuda",
+):
+    """
+    Run multiple MHCPrime models sequentially on one cached dataset/DataLoader.
+
+    The CachedDataset and DataLoader are constructed only once, so DataLoader
+    workers remain alive between models when persistent_workers=True.
+
+    Parameters
+    ----------
+    models : dict
+        model_name -> model
+
+    test_df : pd.DataFrame
+        DataFrame receiving one score column per model.
+
+    cache_pt : str
+        Path to cache created by build_token_cache().
+
+    batch_size : int
+        Inference batch size.
+
+    num_workers : int
+        DataLoader workers.
+
+    use_bf16 : bool
+        Match run_mhcprime_fast behavior. If True, model runs in bfloat16.
+
+    compile_model : bool
+        If True, torch.compile each model separately.
+        Usually False for your current inference runs.
+
+    use_domain_id : bool
+        Whether cached domain IDs should be included.
+
+    device : str
+        CUDA device.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of test_df with one score column per model.
+    """
+    print("=" * 80)
+    print("Setting up shared inference dataset and DataLoader")
+    print("=" * 80)
+
+    # ---------------------------------------------------------
+    # Build cached dataset ONCE
+    # ---------------------------------------------------------
+    print(f"Loading cache: {cache_pt}")
+    ds = CachedDataset(cache_pt, use_domain_id=use_domain_id)
+
+    print(
+        f"Building shared DataLoader | N={len(ds):,} | "
+        f"batch_size={batch_size:,} | workers={num_workers}"
+    )
+
+    loader = DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=partial(collate, use_domain_id=use_domain_id),
+        pin_memory=True,
+        persistent_workers=(num_workers > 0),
+        num_workers=num_workers,
+    )
+
+    output_df = test_df.copy()
+
+    torch.backends.cuda.enable_flash_sdp(True)
+
+    print(f"\nRunning {len(models)} models...\n")
+
+    # ---------------------------------------------------------
+    # Sequentially run every model through SAME DataLoader
+    # ---------------------------------------------------------
+    for model_idx, (model_name, model) in enumerate(models.items(), start=1):
+        print("=" * 80)
+        print(f"Model {model_idx}/{len(models)}: {model_name}")
+        print("=" * 80)
+
+        model = model.eval().to(device)
+
+        if use_bf16:
+            model = model.to(torch.bfloat16)
+
+        if compile_model:
+            print("Compiling model...")
+            model = torch.compile(model, mode="reduce-overhead")
+
+        all_logits = []
+
+        with torch.inference_mode(), torch.cuda.amp.autocast(
+            dtype=torch.bfloat16 if use_bf16 else torch.float32
+        ):
+            for batch in tqdm(
+                loader,
+                desc=f"Inference: {model_name}",
+                leave=True,
+            ):
+                batch = {
+                    k: v.to(device, non_blocking=True)
+                    if torch.is_tensor(v) else v
+                    for k, v in batch.items()
+                }
+
+                logits = model(batch, return_embeddings=False)
+                all_logits.append(logits.float().cpu())
+
+        output_scores = torch.cat(all_logits)
+
+        if len(output_scores) != len(output_df):
+            raise ValueError(
+                f"{model_name}: inference produced {len(output_scores):,} scores "
+                f"for {len(output_df):,} dataframe rows."
+            )
+
+        output_df[model_name] = output_scores.view(-1).tolist()
+
+        print(f"Finished {model_name}: {len(output_scores):,} scores")
+
+    print("\n" + "=" * 80)
+    print("Finished inference for all models.")
+    print("=" * 80)
+
+    return output_df

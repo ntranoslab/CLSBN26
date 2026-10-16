@@ -1,0 +1,5 @@
+,reference,comparison,statistic,p_raw,p_adj,significant
+0,model_base,model_ft,198.0,0.144481239374727,0.144481239374727,False
+1,model_base,model_pepcl,8.0,5.820766091346741e-09,2.3283064365386963e-08,True
+2,model_base,EL_score,71.0,6.846548058092594e-05,9.128730744123459e-05,True
+3,model_base,BA_score,45.0,3.874301910400391e-06,7.748603820800781e-06,True

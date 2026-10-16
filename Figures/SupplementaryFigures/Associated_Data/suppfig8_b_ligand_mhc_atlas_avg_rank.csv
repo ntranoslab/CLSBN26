@@ -1,6 +1,0 @@
-,model_name,mean_rank,median_rank
-0,mhcprime,77.01828467238256,91.280716
-1,escape_seq_neoant_ft_cls,69.02172451728725,81.37333
-2,escape_seq_neoant_pepcl_cls,79.41789375058322,90.76232
-3,escape_seq_neoant_ft_w_more_negs_cls,67.6970418691696,78.54678
-4,escape_seq_neoant_pepcl_w_more_negs_cls,79.88247374167905,91.169136
